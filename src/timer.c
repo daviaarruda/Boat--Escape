@@ -1,4 +1,4 @@
-**
+/**
  * timer.c
  * Created on Aug, 23th 2023
  * Author: Tiago Barros
