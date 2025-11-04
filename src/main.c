@@ -1,88 +1,120 @@
-/**
- * main.h
- * Created on Aug, 23th 2023
- * Author: Tiago Barros
- * Based on "From C to C++ course - 2002"
-*/
-
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
-
+#include <time.h>
 #include "screen.h"
 #include "keyboard.h"
 #include "timer.h"
 
-int x = 34, y = 12;
-int incX = 1, incY = 1;
+typedef struct {
+    int x, y;
+} Barco;
 
-void printHello(int nextX, int nextY)
-{
-    screenSetColor(CYAN, DARKGRAY);
-    screenGotoxy(x, y);
-    printf("           ");
-    x = nextX;
-    y = nextY;
-    screenGotoxy(x, y);
-    printf("Hello World");
-}
+void iniciarJogo(Barco *barco);
+void desenharBarco(Barco *barco);
+void desenharObstaculos(int linhaY, int espacoX);
+void limparLinha(int linhaY);
+void verificarColisao(Barco *barco, int linhaY, int espacoX, int *jogoEncerrado);
+void imprimirPontuacao(int pontuacao);
 
-void printKey(int ch)
-{
-    screenSetColor(YELLOW, DARKGRAY);
-    screenGotoxy(35, 22);
-    printf("Key code :");
-
-    screenGotoxy(34, 23);
-    printf("            ");
-    
-    if (ch == 27) screenGotoxy(36, 23);
-    else screenGotoxy(39, 23);
-
-    printf("%d ", ch);
-    while (keyhit())
-    {
-        printf("%d ", readch());
-    }
-}
-
-int main() 
-{
-    static int ch = 0;
+int main() {
+    Barco barco;
+    int jogoEncerrado = 0;
+    int pontuacao = 0;
+    int tecla = 0;
+    long temporizador = 0;
+    int contadorAtualizacao = 0;
 
     screenInit(1);
     keyboardInit();
-    timerInit(50);
+    timerInit(100);
+    srand(time(NULL));
 
-    printHello(x, y);
+    iniciarJogo(&barco);
     screenUpdate();
 
-    while (ch != 10) //enter
-    {
-        // Handle user input
-        if (keyhit()) 
-        {
-            ch = readch();
-            printKey(ch);
-            screenUpdate();
+    int linhaY = 1;
+    int espacoX = rand() % (MAXX - 8) + 4;
+
+    while (!jogoEncerrado && tecla != 10) {
+        if (keyhit()) {
+            tecla = readch();
+            if ((tecla == 'e' || tecla == 'E') && barco.x < MAXX - 2) barco.x++;
+            if ((tecla == 'q' || tecla == 'Q') && barco.x > 1) barco.x--;
         }
 
-        // Update game state (move elements, verify collision, etc)
-        if (timerTimeOver() == 1)
-        {
-            int newX = x + incX;
-            if (newX >= (MAXX -strlen("Hello World") -1) || newX <= MINX+1) incX = -incX;
-            int newY = y + incY;
-            if (newY >= MAXY-1 || newY <= MINY+1) incY = -incY;
+        if (timerTimeOver() == 1) {
+            contadorAtualizacao++;
+            if (contadorAtualizacao % 2 == 0) {
+                limparLinha(linhaY - 1);
+                linhaY++;
 
-            printKey(ch);
-            printHello(newX, newY);
+                if (linhaY >= MAXY) {
+                    linhaY = 1;
+                    espacoX = rand() % (MAXX - 8) + 4;
+                    pontuacao++;
+                }
 
-            screenUpdate();
+                desenharObstaculos(linhaY, espacoX);
+                desenharBarco(&barco);
+                verificarColisao(&barco, linhaY, espacoX, &jogoEncerrado);
+                imprimirPontuacao(pontuacao);
+                screenUpdate();
+            }
+            temporizador++;
         }
     }
+
+    screenSetColor(RED, BLACK);
+    screenGotoxy(MAXX / 2 - 5, MAXY / 2);
+    printf("VOCÊ AFUNDOU!");
 
     keyboardDestroy();
     screenDestroy();
     timerDestroy();
 
     return 0;
+}
+
+void iniciarJogo(Barco *barco) {
+    barco->x = MAXX / 2;
+    barco->y = MAXY - 2;
+    screenClear();
+}
+
+void desenharBarco(Barco *barco) {
+    screenSetColor(CYAN, BLACK);
+    screenGotoxy(barco->x, barco->y);
+    printf("⛵");
+}
+
+void desenharObstaculos(int linhaY, int espacoX) {
+    screenSetColor(RED, BLACK);
+    for (int x = 1; x <= MAXX; x++) {
+        if (x < espacoX || x > espacoX + 3) {
+            screenGotoxy(x, linhaY);
+            printf("▓");
+        }
+    }
+}
+
+void limparLinha(int linhaY) {
+    if (linhaY > 0 && linhaY < MAXY) {
+        for (int x = 1; x <= MAXX; x++) {
+            screenGotoxy(x, linhaY);
+            printf(" ");
+        }
+    }
+}
+
+void verificarColisao(Barco *barco, int linhaY, int espacoX, int *jogoEncerrado) {
+    if (barco->y == linhaY && (barco->x < espacoX || barco->x > espacoX + 3)) {
+        *jogoEncerrado = 1;
+    }
+}
+
+void imprimirPontuacao(int pontuacao) {
+    screenSetColor(WHITE, BLACK);
+    screenGotoxy(2, 2);
+    printf("Obstáculos desviados: %d", pontuacao);
 }
