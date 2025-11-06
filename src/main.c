@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>   // necessário para usleep
 #include "screen.h"
 #include "keyboard.h"
 #include "timer.h"
@@ -16,6 +17,8 @@ void desenharObstaculos(int linhaY, int espacoX);
 void limparLinha(int linhaY);
 void verificarColisao(Barco *barco, int linhaY, int espacoX, int *jogoEncerrado);
 void imprimirPontuacao(int pontuacao);
+void telaInicial();
+void telaFinal(int pontuacao);
 
 int main() {
     Barco barco;
@@ -29,6 +32,23 @@ int main() {
     keyboardInit();
     timerInit(100);
     srand(time(NULL));
+
+    // Tela inicial bonita
+    telaInicial();
+
+    // Espera o ENTER
+    while (1) {
+        if (keyhit()) {
+            tecla = readch();
+            if (tecla == 10) break; // ENTER
+        }
+    }
+
+    // limpa qualquer tecla que sobrou
+    while (keyhit()) readch();
+
+    // >>> CORREÇÃO IMPORTANTE: zera 'tecla' para evitar que o ENTER "vaze"
+    tecla = 0;
 
     iniciarJogo(&barco);
     screenUpdate();
@@ -65,9 +85,8 @@ int main() {
         }
     }
 
-    screenSetColor(RED, BLACK);
-    screenGotoxy(MAXX / 2 - 5, MAXY / 2);
-    printf("VOCÊ AFUNDOU!");
+    // Tela final bonita
+    telaFinal(pontuacao);
 
     keyboardDestroy();
     screenDestroy();
@@ -116,5 +135,42 @@ void verificarColisao(Barco *barco, int linhaY, int espacoX, int *jogoEncerrado)
 void imprimirPontuacao(int pontuacao) {
     screenSetColor(WHITE, BLACK);
     screenGotoxy(2, 2);
-    printf("Obstáculos desviados: %d", pontuacao);
+    printf("🌊 Obstáculos desviados: %d", pontuacao);
+}
+
+void telaInicial() {
+    screenClear();
+    screenSetColor(CYAN, BLACK);
+    screenGotoxy(MAXX / 2 - 8, MAXY / 2 - 2);
+    printf("🚤  B O A T   E S C A P E  🌊");
+    screenSetColor(WHITE, BLACK);
+    screenGotoxy(MAXX / 2 - 13, MAXY / 2);
+    printf("Pressione ENTER para comecar o jogo!");
+    screenSetColor(BLUE, BLACK);
+    screenGotoxy(MAXX / 2 - 16, MAXY / 2 + 3);
+    printf("Use Q e E para mover o barco e desviar dos obstaculos!");
+    screenUpdate();
+}
+
+void telaFinal(int pontuacao) {
+    screenClear();
+    screenSetColor(RED, BLACK);
+    screenGotoxy(MAXX / 2 - 6, MAXY / 2 - 2);
+    printf("💥  V O C Ê   P E R D E U ! 💀");
+    screenSetColor(WHITE, BLACK);
+    screenGotoxy(MAXX / 2 - 10, MAXY / 2);
+    printf("Pontuacao final: %d", pontuacao);
+    screenSetColor(CYAN, BLACK);
+    screenGotoxy(MAXX / 2 - 14, MAXY / 2 + 2);
+    printf("Pressione ENTER para sair...");
+    screenUpdate();
+
+    // espera o jogador apertar enter pra fechar
+    int tecla = 0;
+    while (1) {
+        if (keyhit()) {
+            tecla = readch();
+            if (tecla == 10) break;
+        }
+    }
 }
