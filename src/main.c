@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <unistd.h>   // necessário para usleep
+#include <unistd.h>
 #include "screen.h"
 #include "keyboard.h"
 #include "timer.h"
@@ -13,6 +13,7 @@ typedef struct {
 
 void iniciarJogo(Barco *barco);
 void desenharBarco(Barco *barco);
+void limparBarco(Barco *barco);
 void desenharObstaculos(int linhaY, int espacoX);
 void limparLinha(int linhaY);
 void verificarColisao(Barco *barco, int linhaY, int espacoX, int *jogoEncerrado);
@@ -27,27 +28,23 @@ int main() {
     int tecla = 0;
     long temporizador = 0;
     int contadorAtualizacao = 0;
+    int velocidade = 2;
 
     screenInit(1);
     keyboardInit();
     timerInit(100);
     srand(time(NULL));
 
-    // Tela inicial bonita
     telaInicial();
 
-    // Espera o ENTER
     while (1) {
         if (keyhit()) {
             tecla = readch();
-            if (tecla == 10) break; // ENTER
+            if (tecla == 10) break;
         }
     }
 
-    // limpa qualquer tecla que sobrou
     while (keyhit()) readch();
-
-    // >>> CORREÇÃO IMPORTANTE: zera 'tecla' para evitar que o ENTER "vaze"
     tecla = 0;
 
     iniciarJogo(&barco);
@@ -55,26 +52,32 @@ int main() {
 
     int linhaY = 1;
     int espacoX = rand() % (MAXX - 8) + 4;
+    int ultimoEspaco = espacoX;
 
     while (!jogoEncerrado && tecla != 10) {
         if (keyhit()) {
             tecla = readch();
+            limparBarco(&barco);
             if ((tecla == 'e' || tecla == 'E') && barco.x < MAXX - 2) barco.x++;
             if ((tecla == 'q' || tecla == 'Q') && barco.x > 1) barco.x--;
+            desenharBarco(&barco);
+            screenUpdate();
         }
 
         if (timerTimeOver() == 1) {
             contadorAtualizacao++;
-            if (contadorAtualizacao % 2 == 0) {
+            if (contadorAtualizacao % velocidade == 0) {
                 limparLinha(linhaY - 1);
                 linhaY++;
-
                 if (linhaY >= MAXY) {
                     linhaY = 1;
-                    espacoX = rand() % (MAXX - 8) + 4;
+                    do {
+                        espacoX = rand() % (MAXX - 8) + 4;
+                    } while (espacoX == ultimoEspaco);
+                    ultimoEspaco = espacoX;
                     pontuacao++;
+                    if (pontuacao % 10 == 0 && velocidade > 1)
                 }
-
                 desenharObstaculos(linhaY, espacoX);
                 desenharBarco(&barco);
                 verificarColisao(&barco, linhaY, espacoX, &jogoEncerrado);
@@ -85,13 +88,10 @@ int main() {
         }
     }
 
-    // Tela final bonita
     telaFinal(pontuacao);
-
     keyboardDestroy();
     screenDestroy();
     timerDestroy();
-
     return 0;
 }
 
@@ -99,12 +99,18 @@ void iniciarJogo(Barco *barco) {
     barco->x = MAXX / 2;
     barco->y = MAXY - 2;
     screenClear();
+    desenharBarco(barco);
 }
 
 void desenharBarco(Barco *barco) {
     screenSetColor(CYAN, BLACK);
     screenGotoxy(barco->x, barco->y);
     printf("⛵");
+}
+
+void limparBarco(Barco *barco) {
+    screenGotoxy(barco->x, barco->y);
+    printf("  ");
 }
 
 void desenharObstaculos(int linhaY, int espacoX) {
@@ -127,9 +133,7 @@ void limparLinha(int linhaY) {
 }
 
 void verificarColisao(Barco *barco, int linhaY, int espacoX, int *jogoEncerrado) {
-    if (barco->y == linhaY && (barco->x < espacoX || barco->x > espacoX + 3)) {
-        *jogoEncerrado = 1;
-    }
+    if (barco->y == linhaY && (barco->x < espacoX || barco->x > espacoX + 3)) *jogoEncerrado = 1;
 }
 
 void imprimirPontuacao(int pontuacao) {
@@ -164,8 +168,6 @@ void telaFinal(int pontuacao) {
     screenGotoxy(MAXX / 2 - 14, MAXY / 2 + 2);
     printf("Pressione ENTER para sair...");
     screenUpdate();
-
-    // espera o jogador apertar enter pra fechar
     int tecla = 0;
     while (1) {
         if (keyhit()) {
