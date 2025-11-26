@@ -11,6 +11,17 @@ typedef struct {
     int x, y;
 } Barco;
 
+typedef struct TopScore {
+    char iniciais[4];
+    int pontos;
+    struct TopScore *prox;
+} TopScore;
+
+TopScore* carregarRanking();
+void salvarRanking(TopScore *lista);
+void adicionarRanking(TopScore **lista, char nome[4], int pontos);
+void mostrarRanking(TopScore *lista);
+void liberarRanking(TopScore *lista);
 void iniciarJogo(Barco *barco);
 void desenharBarco(Barco *barco);
 void limparBarco(Barco *barco);
@@ -19,7 +30,7 @@ void limparLinha(int linhaY);
 void verificarColisao(Barco *barco, int linhaY, int espacoX, int *jogoEncerrado);
 void imprimirPontuacao(int pontuacao);
 void telaInicial();
-void telaFinal(int pontuacao);
+void telaFinal(int pontuacao, TopScore *ranking);
 
 int main() {
     Barco barco;
@@ -29,6 +40,8 @@ int main() {
     long temporizador = 0;
     int contadorAtualizacao = 0;
     int velocidade = 2;
+
+    TopScore *ranking = carregarRanking();
 
     screenInit(1);
     keyboardInit();
@@ -76,7 +89,6 @@ int main() {
                     } while (espacoX == ultimoEspaco);
                     ultimoEspaco = espacoX;
                     pontuacao++;
-                    if (pontuacao % 10 == 0 && velocidade > 1)
                 }
                 desenharObstaculos(linhaY, espacoX);
                 desenharBarco(&barco);
@@ -88,12 +100,118 @@ int main() {
         }
     }
 
-    telaFinal(pontuacao);
+    char nome[4];
+    screenClear();
+    screenSetColor(WHITE, BLACK);
+    screenGotoxy(MAXX/2 - 12, MAXY/2 - 1);
+    printf("Digite suas iniciais (3 letras): ");
+    screenUpdate();
+
+    scanf("%3s", nome);
+
+    adicionarRanking(&ranking, nome, pontuacao);
+    salvarRanking(ranking);
+
+    telaFinal(pontuacao, ranking);
+
+    liberarRanking(ranking);
     keyboardDestroy();
     screenDestroy();
     timerDestroy();
     return 0;
 }
+
+
+TopScore* carregarRanking() {
+    FILE *f = fopen("ranking.txt", "r");
+    if (!f) return NULL;
+
+    TopScore *lista = NULL;
+    while (!feof(f)) {
+        TopScore *novo = malloc(sizeof(TopScore));
+        if (fscanf(f, "%s %d", novo->iniciais, &novo->pontos) != 2) {
+            free(novo);
+            break;
+        }
+        novo->prox = lista;
+        lista = novo;
+    }
+    fclose(f);
+    return lista;
+}
+
+void salvarRanking(TopScore *lista) {
+    FILE *f = fopen("ranking.txt", "w");
+    if (!f) return;
+
+    TopScore *atual = lista;
+    while (atual) {
+        fprintf(f, "%s %d\n", atual->iniciais, atual->pontos);
+        atual = atual->prox;
+    }
+    fclose(f);
+}
+
+void adicionarRanking(TopScore **lista, char nome[4], int pontos) {
+    TopScore *novo = malloc(sizeof(TopScore));
+    strcpy(novo->iniciais, nome);
+    novo->pontos = pontos;
+    novo->prox = NULL;
+
+    if (*lista == NULL || pontos > (*lista)->pontos) {
+        novo->prox = *lista;
+        *lista = novo;
+        return;
+    }
+
+    TopScore *atual = *lista;
+    while (atual->prox && atual->prox->pontos >= pontos)
+        atual = atual->prox;
+
+    novo->prox = atual->prox;
+    atual->prox = novo;
+}
+
+void mostrarRanking(TopScore *lista) {
+    screenClear();
+    screenSetColor(CYAN, BLACK);
+    screenGotoxy(MAXX/2 - 5, 2);
+    printf("🏆 RANKING");
+
+    TopScore *atual = lista;
+    int linha = 4;
+    int pos = 1;
+
+    while (atual && linha < MAXY-2) {
+        screenGotoxy(MAXX/2 - 10, linha);
+        printf("%dº - %s : %d pontos", pos, atual->iniciais, atual->pontos);
+        atual = atual->prox;
+        linha++;
+        pos++;
+    }
+
+    screenGotoxy(MAXX/2 - 10, MAXY - 3);
+    printf("Pressione ENTER para voltar...");
+    screenUpdate();
+
+    int tecla = 0;
+    while (1) {
+        if (keyhit()) {
+            tecla = readch();
+            if (tecla == 10) break;
+        }
+    }
+}
+
+void liberarRanking(TopScore *lista) {
+    TopScore *tmp;
+    while (lista) {
+        tmp = lista;
+        lista = lista->prox;
+        free(tmp);
+    }
+}
+
 
 void iniciarJogo(Barco *barco) {
     barco->x = MAXX / 2;
@@ -133,7 +251,8 @@ void limparLinha(int linhaY) {
 }
 
 void verificarColisao(Barco *barco, int linhaY, int espacoX, int *jogoEncerrado) {
-    if (barco->y == linhaY && (barco->x < espacoX || barco->x > espacoX + 3)) *jogoEncerrado = 1;
+    if (barco->y == linhaY && (barco->x < espacoX || barco->x > espacoX + 3)) 
+        *jogoEncerrado = 1;
 }
 
 void imprimirPontuacao(int pontuacao) {
@@ -156,23 +275,29 @@ void telaInicial() {
     screenUpdate();
 }
 
-void telaFinal(int pontuacao) {
-    screenClear();
-    screenSetColor(RED, BLACK);
-    screenGotoxy(MAXX / 2 - 6, MAXY / 2 - 2);
-    printf("💥  V O C Ê   P E R D E U ! 💀");
-    screenSetColor(WHITE, BLACK);
-    screenGotoxy(MAXX / 2 - 10, MAXY / 2);
-    printf("Pontuacao final: %d", pontuacao);
-    screenSetColor(CYAN, BLACK);
-    screenGotoxy(MAXX / 2 - 14, MAXY / 2 + 2);
-    printf("Pressione ENTER para sair...");
-    screenUpdate();
+void telaFinal(int pontuacao, TopScore *ranking) {
     int tecla = 0;
+
     while (1) {
+        screenClear();
+        screenSetColor(RED, BLACK);
+        screenGotoxy(MAXX / 2 - 6, MAXY / 2 - 2);
+        printf("💥  VOCE PERDEU! 💀");
+
+        screenSetColor(WHITE, BLACK);
+        screenGotoxy(MAXX / 2 - 10, MAXY / 2);
+        printf("Pontuacao final: %d", pontuacao);
+
+        screenSetColor(CYAN, BLACK);
+        screenGotoxy(MAXX / 2 - 16, MAXY / 2 + 2);
+        printf("R - Ver Ranking | ENTER - Sair");
+        screenUpdate();
+
         if (keyhit()) {
             tecla = readch();
             if (tecla == 10) break;
+            if (tecla == 'r' || tecla == 'R')
+                mostrarRanking(ranking);
         }
     }
 }
