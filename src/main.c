@@ -7,6 +7,8 @@
 #include "keyboard.h"
 #include "timer.h"
 
+int mapaObstaculos[MAXY][MAXX]; 
+
 typedef struct {
     int x, y;
 } Barco;
@@ -33,6 +35,11 @@ void telaInicial();
 void telaFinal(int pontuacao, TopScore *ranking);
 
 int main() {
+
+    for (int y = 0; y < MAXY; y++)
+        for (int x = 0; x < MAXX; x++)
+            mapaObstaculos[y][x] = 0;
+
     Barco barco;
     int jogoEncerrado = 0;
     int pontuacao = 0;
@@ -90,6 +97,14 @@ int main() {
                     ultimoEspaco = espacoX;
                     pontuacao++;
                 }
+
+                for (int x = 0; x < MAXX; x++) {
+                    if (x < espacoX || x > espacoX + 3)
+                        mapaObstaculos[linhaY][x] = 1; 
+                    else
+                        mapaObstaculos[linhaY][x] = 0; 
+                }
+
                 desenharObstaculos(linhaY, espacoX);
                 desenharBarco(&barco);
                 verificarColisao(&barco, linhaY, espacoX, &jogoEncerrado);
