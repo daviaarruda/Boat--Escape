@@ -182,6 +182,9 @@ ls
 ```
 
 ---
+VÍDEO DEMOSTRANÇÃO JOGO
+https://youtu.be/vezu8DGkamk
+
 
 # 🧑‍💻 Autor
 
